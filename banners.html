@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Influ2 ABM — Persona Banner Ads</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background: #f4f4f4; color: #161616; padding: 32px 24px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .meta { font-size: 13px; color: #6f6f6f; margin-bottom: 32px; }
+  .back-link { display:inline-block; margin-bottom:24px; font-size:13px; color:#0f62fe; text-decoration:none; }
+  .back-link:hover { text-decoration:underline; }
+  .persona-tabs { display: flex; gap: 0; margin-bottom: 32px; border-bottom: 2px solid #e0e0e0; }
+  .persona-tab { padding: 12px 32px; font-size: 14px; font-weight: 700; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; color: #6f6f6f; transition: color 0.15s, border-color 0.15s; }
+  .persona-tab.cio.active { color: #0f62fe; border-bottom-color: #0f62fe; }
+  .persona-tab.cto.active { color: #7c5cd8; border-bottom-color: #7c5cd8; }
+  .persona-panel { display: none; }
+  .persona-panel.active { display: block; }
+  .fmt-section { margin-bottom: 48px; }
+  .fmt-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 8px; margin-bottom: 20px; border-bottom: 2px solid; }
+  .cio-color { color: #0f62fe; border-color: #0f62fe; }
+  .cto-color { color: #7c5cd8; border-color: #7c5cd8; }
+  .banner-grid { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .banner-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .banner-label { font-size: 11px; color: #6f6f6f; text-align: center; }
+  .banner { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+  .banner-inner { position: relative; z-index: 2; padding: 16px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+  .banner .grid-bg { position: absolute; inset: 0; z-index: 0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 20px 20px; }
+  .orb { position: absolute; z-index: 1; border-radius: 50%; pointer-events: none; }
+  .b-logo { font-family: Arial Black, sans-serif; font-weight: 900; letter-spacing: 3px; color: white; margin-bottom: 4px; }
+  .b-divider { height: 2px; width: 24px; margin-bottom: 10px; }
+  .b-eyebrow { font-size: 9px; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; margin-bottom: 6px; }
+  .b-headline { color: white; font-weight: 800; line-height: 1.15; }
+  .b-subhead { color: rgba(255,255,255,0.55); line-height: 1.45; margin-top: 6px; }
+  .b-stat-row { display: flex; gap: 16px; margin-top: 10px; }
+  .b-stat-num { font-size: 22px; font-weight: 800; color: white; line-height: 1; }
+  .b-stat-lbl { font-size: 9px; color: rgba(255,255,255,0.5); margin-top: 2px; line-height: 1.3; }
+  .b-cta { display: inline-block; color: white; font-weight: 700; font-size: 11px; border-radius: 2px; padding: 9px 16px; text-align: center; letter-spacing: 0.02em; align-self: flex-start; margin-top: 12px; }
+  .cio-banner { background: #06122b; }
+  .cio-banner .b-divider { background: #0f62fe; }
+  .cio-banner .b-eyebrow { color: #78a9ff; }
+  .cio-banner .b-cta { background: #0f62fe; }
+  .cio-banner .orb { background: radial-gradient(circle, rgba(15,98,254,0.25) 0%, transparent 70%); }
+  .cto-banner { background: #0d0618; }
+  .cto-banner .b-divider { background: #a56eff; }
+  .cto-banner .b-eyebrow { color: #c5a3ff; }
+  .cto-banner .b-cta { background: #7c5cd8; }
+  .cto-banner .orb { background: radial-gradient(circle, rgba(124,92,216,0.28) 0%, transparent 70%); }
+  .cio-banner::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:#0f62fe; z-index:3; }
+  .cto-banner::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:#7c5cd8; z-index:3; }
+  .banner-1080 { width:300px; height:300px; }
+  .banner-1080 .b-logo { font-size:11px; }
+  .banner-1080 .b-headline { font-size:20px; }
+  .banner-1080 .b-subhead { font-size:11px; }
+  .banner-1080 .orb { width:220px; height:220px; right:-60px; top:20px; }
+  .banner-1200 { width:460px; height:242px; }
+  .banner-1200 .banner-inner { flex-direction:row; padding:0; }
+  .banner-1200 .b-left { flex:1; padding:18px; display:flex; flex-direction:column; justify-content:space-between; }
+  .banner-1200 .b-right { width:160px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:16px; }
+  .banner-1200.cio-banner .b-right { background: linear-gradient(160deg,#0043ce,#0f62fe); }
+  .banner-1200.cto-banner .b-right { background: linear-gradient(160deg,#4a2b9e,#7c5cd8); }
+  .banner-1200 .b-logo { font-size:10px; }
+  .banner-1200 .b-headline { font-size:16px; }
+  .banner-1200 .b-subhead { font-size:10px; }
+  .banner-1200 .b-cta { margin-top:10px; }
+  .banner-1200 .orb { width:180px; height:180px; right:-40px; top:-40px; }
+  .banner-1200 .b-stat { text-align:center; }
+  .banner-1200 .b-stat-num { font-size:26px; }
+  .banner-1200 .b-stat-lbl { font-size:9px; }
+  .banner-300 { width:220px; height:175px; }
+  .banner-300 .b-logo { font-size:10px; }
+  .banner-300 .b-headline { font-size:14px; }
+  .banner-300 .b-subhead { font-size:9px; }
+  .banner-300 .b-cta { font-size:9px; padding:7px 12px; margin-top:8px; }
+  .banner-300 .orb { width:120px; height:120px; right:-30px; top:10px; }
+  .banner-160 { width:110px; height:400px; }
+  .banner-160 .b-logo { font-size:9px; }
+  .banner-160 .b-headline { font-size:13px; }
+  .banner-160 .b-subhead { font-size:8px; }
+  .banner-160 .b-cta { font-size:9px; padding:7px 10px; align-self:stretch; text-align:center; }
+  .banner-160 .b-divider { width:16px; }
+  .banner-160 .orb { width:120px; height:120px; right:-40px; bottom:80px; }
+  .banner-728 { width:100%; max-width:680px; height:60px; }
+  .banner-728 .banner-inner { flex-direction:row; align-items:center; padding:0 14px; gap:12px; }
+  .banner-728 .b-left { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+  .banner-728 .b-logo { font-size:10px; white-space:nowrap; margin:0; }
+  .banner-728 .b-sep { width:1px; height:28px; background:#2d2d2d; flex-shrink:0; }
+  .banner-728 .b-text { display:flex; flex-direction:column; gap:1px; min-width:0; }
+  .banner-728 .b-headline { font-size:12px; margin:0; white-space:nowrap; }
+  .banner-728 .b-subhead { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .banner-728 .b-cta { font-size:10px; padding:7px 14px; white-space:nowrap; flex-shrink:0; margin:0; align-self:auto; }
+  .banner-728 .b-divider,.banner-728 .b-eyebrow { display:none; }
+  .banner-728::before { width:3px; height:100%; top:0; left:0; right:auto; }
+  .banner-320 { width:300px; height:44px; }
+  .banner-320 .banner-inner { flex-direction:row; align-items:center; padding:0 10px; gap:8px; }
+  .banner-320 .b-logo { font-size:9px; white-space:nowrap; margin:0; }
+  .banner-320 .b-sep { width:1px; height:22px; background:#2d2d2d; flex-shrink:0; }
+  .banner-320 .b-headline { font-size:10px; flex:1; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .banner-320 .b-subhead,.banner-320 .b-divider,.banner-320 .b-eyebrow { display:none; }
+  .banner-320 .b-cta { font-size:9px; padding:5px 9px; white-space:nowrap; flex-shrink:0; margin:0; align-self:auto; }
+  .banner-320::before { width:3px; height:100%; top:0; left:0; right:auto; }
+  .acct-tag { display:inline-block; font-size:8px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; padding:2px 6px; border-radius:2px; margin-bottom:6px; }
+  .cio-banner .acct-tag { background:rgba(15,98,254,0.25); color:#78a9ff; }
+  .cto-banner .acct-tag { background:rgba(124,92,216,0.25); color:#c5a3ff; }
+  .acct-tabs { display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .acct-tab { padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid #e0e0e0; background:white; color:#6f6f6f; }
+  .acct-tab.active.cio { background:#0f62fe; color:white; border-color:#0f62fe; }
+  .acct-tab.active.cto { background:#7c5cd8; color:white; border-color:#7c5cd8; }
+  .acct-set { display:none; }
+  .acct-set.active { display:block; }
+  .blocker { background:#fff7ed; border-left:3px solid #f1620a; padding:10px 14px; border-radius:4px; font-size:12px; color:#5d2a00; margin-top:24px; }
+  .blocker strong { display:block; margin-bottom:2px; }
+  footer { margin-top:40px; padding-top:14px; border-top:1px solid #e0e0e0; text-align:center; font-size:12px; color:#a8a8a8; }
+</style>
+</head>
+<body>
+<a class="back-link" href="index.html">← Back to ABM Agent</a>
+<h1>Influ2 ABM Campaign — Persona Banner Ads</h1>
+<div class="meta">Pipeline Creation · Morgan Stanley · Merrill Lynch · State Street · Flight: 2026-08-01</div>
+<div class="persona-tabs">
+  <div class="persona-tab cio active" data-persona="cio">CIO — Complexity &amp; Transformation</div>
+  <div class="persona-tab cto" data-persona="cto">CTO — Speed &amp; Modernisation</div>
+</div>
+
+<!-- CIO PANEL -->
+<div class="persona-panel active" id="panel-cio">
+  <p style="font-size:13px;color:#6f6f6f;margin-bottom:20px;">Messaging: <strong>Cut Complexity. Transform Now.</strong> · Pain points: tech debt, regulatory complexity · CTA: Request Demo</p>
+  <div class="acct-tabs">
+    <div class="acct-tab cio active" data-acct="ms-cio">Morgan Stanley</div>
+    <div class="acct-tab cio" data-acct="ml-cio">Merrill Lynch</div>
+    <div class="acct-tab cio" data-acct="ss-cio">State Street</div>
+  </div>
+
+  <div class="acct-set active" id="ms-cio">
+    <div class="fmt-section"><div class="fmt-title cio-color">Native &amp; Social</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-1080 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Morgan Stanley</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">Cut Complexity.<br>Transform Now.</div><div class="b-subhead">Eliminate tech debt and modernise with IBM AI Integration Services.</div><div class="b-stat-row"><div><div class="b-stat-num">40%</div><div class="b-stat-lbl">tech debt<br>reduction</div></div><div><div class="b-stat-num">3×</div><div class="b-stat-lbl">faster<br>deployment</div></div></div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">1080×1080</div></div>
+      <div class="banner-wrap"><div class="banner banner-1200 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div class="b-left"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Morgan Stanley</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">Cut Complexity.<br>Transform Now.</div><div class="b-subhead">AI Integration Services for FSS CIOs.</div></div><div class="b-cta">Request Demo →</div></div><div class="b-right"><div class="b-stat"><div class="b-stat-num">40%</div><div class="b-stat-lbl">tech debt reduction</div></div><div class="b-stat"><div class="b-stat-num">3×</div><div class="b-stat-lbl">faster deployment</div></div></div></div></div><div class="banner-label">1200×628</div></div>
+    </div></div>
+    <div class="fmt-section"><div class="fmt-title cio-color">Display</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-300 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Morgan Stanley</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">Cut Complexity.<br>Transform Now.</div><div class="b-subhead">AI Integration for FSS.</div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">300×250</div></div>
+      <div class="banner-wrap"><div class="banner banner-160 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">MS</div><div class="b-eyebrow">CIO</div><div class="b-headline">Cut Complexity.<br>Transform<br>Now.</div></div><div class="b-cta">Request Demo</div></div></div><div class="banner-label">160×600</div></div>
+      <div class="banner-wrap" style="width:100%;max-width:680px;"><div class="banner banner-728 cio-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-left"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-text"><div class="b-headline">Cut Complexity. Transform Now.</div><div class="b-subhead">IBM AI Integration Services — built for Morgan Stanley's CIO agenda.</div></div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">728×90</div></div>
+      <div class="banner-wrap"><div class="banner banner-320 cio-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-headline">Cut Complexity. Transform Now.</div><div class="b-cta">Demo →</div></div></div><div class="banner-label">320×50</div></div>
+    </div></div>
+  </div>
+
+  <div class="acct-set" id="ml-cio">
+    <div class="fmt-section"><div class="fmt-title cio-color">Native &amp; Social</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-1080 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Merrill Lynch</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">Simplify.<br>Accelerate.<br>Lead.</div><div class="b-subhead">IBM helps Merrill Lynch CIOs cut through complexity and build the AI-ready enterprise.</div><div class="b-stat-row"><div><div class="b-stat-num">40%</div><div class="b-stat-lbl">tech debt<br>reduction</div></div><div><div class="b-stat-num">3×</div><div class="b-stat-lbl">faster<br>deployment</div></div></div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">1080×1080</div></div>
+      <div class="banner-wrap"><div class="banner banner-1200 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div class="b-left"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Merrill Lynch</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">Simplify.<br>Accelerate. Lead.</div><div class="b-subhead">AI Integration for FSS transformation.</div></div><div class="b-cta">Request Demo →</div></div><div class="b-right"><div class="b-stat"><div class="b-stat-num">40%</div><div class="b-stat-lbl">tech debt reduction</div></div><div class="b-stat"><div class="b-stat-num">3×</div><div class="b-stat-lbl">faster deployment</div></div></div></div></div><div class="banner-label">1200×628</div></div>
+    </div></div>
+    <div class="fmt-section"><div class="fmt-title cio-color">Display</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-300 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Merrill Lynch</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">Simplify.<br>Accelerate. Lead.</div><div class="b-subhead">AI Integration for FSS.</div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">300×250</div></div>
+      <div class="banner-wrap"><div class="banner banner-160 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">ML</div><div class="b-eyebrow">CIO</div><div class="b-headline">Simplify.<br>Accelerate.<br>Lead.</div></div><div class="b-cta">Request Demo</div></div></div><div class="banner-label">160×600</div></div>
+      <div class="banner-wrap" style="width:100%;max-width:680px;"><div class="banner banner-728 cio-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-left"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-text"><div class="b-headline">Simplify. Accelerate. Lead.</div><div class="b-subhead">IBM AI Integration Services — built for Merrill Lynch's CIO transformation agenda.</div></div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">728×90</div></div>
+      <div class="banner-wrap"><div class="banner banner-320 cio-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-headline">Simplify. Accelerate. Lead.</div><div class="b-cta">Demo →</div></div></div><div class="banner-label">320×50</div></div>
+    </div></div>
+  </div>
+
+  <div class="acct-set" id="ss-cio">
+    <div class="fmt-section"><div class="fmt-title cio-color">Native &amp; Social</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-1080 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">State Street</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">From Legacy<br>to Leader.</div><div class="b-subhead">IBM AI Integration Services helps State Street CIOs eliminate tech debt and modernise at scale.</div><div class="b-stat-row"><div><div class="b-stat-num">40%</div><div class="b-stat-lbl">tech debt<br>reduction</div></div><div><div class="b-stat-num">3×</div><div class="b-stat-lbl">faster<br>deployment</div></div></div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">1080×1080</div></div>
+      <div class="banner-wrap"><div class="banner banner-1200 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div class="b-left"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">State Street</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">From Legacy<br>to Leader.</div><div class="b-subhead">AI Integration for FSS modernisation.</div></div><div class="b-cta">Request Demo →</div></div><div class="b-right"><div class="b-stat"><div class="b-stat-num">40%</div><div class="b-stat-lbl">tech debt reduction</div></div><div class="b-stat"><div class="b-stat-num">3×</div><div class="b-stat-lbl">faster deployment</div></div></div></div></div><div class="banner-label">1200×628</div></div>
+    </div></div>
+    <div class="fmt-section"><div class="fmt-title cio-color">Display</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-300 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">State Street</div><div class="b-eyebrow">For the CIO</div><div class="b-headline">From Legacy<br>to Leader.</div><div class="b-subhead">AI Integration for FSS.</div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">300×250</div></div>
+      <div class="banner-wrap"><div class="banner banner-160 cio-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">SS</div><div class="b-eyebrow">CIO</div><div class="b-headline">From Legacy<br>to Leader.</div></div><div class="b-cta">Request Demo</div></div></div><div class="banner-label">160×600</div></div>
+      <div class="banner-wrap" style="width:100%;max-width:680px;"><div class="banner banner-728 cio-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-left"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-text"><div class="b-headline">From Legacy to Leader.</div><div class="b-subhead">IBM AI Integration Services — modernising State Street's technology foundation.</div></div></div><div class="b-cta">Request Demo →</div></div></div><div class="banner-label">728×90</div></div>
+      <div class="banner-wrap"><div class="banner banner-320 cio-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-headline">From Legacy to Leader.</div><div class="b-cta">Demo →</div></div></div><div class="banner-label">320×50</div></div>
+    </div></div>
+  </div>
+</div>
+
+<!-- CTO PANEL -->
+<div class="persona-panel" id="panel-cto">
+  <p style="font-size:13px;color:#6f6f6f;margin-bottom:20px;">Messaging: <strong>Ship Faster with AI.</strong> · Pain points: time to market, engineering velocity · CTA: Download Guide</p>
+  <div class="acct-tabs">
+    <div class="acct-tab cto active" data-acct="ms-cto">Morgan Stanley</div>
+    <div class="acct-tab cto" data-acct="ml-cto">Merrill Lynch</div>
+    <div class="acct-tab cto" data-acct="ss-cto">State Street</div>
+  </div>
+
+  <div class="acct-set active" id="ms-cto">
+    <div class="fmt-section"><div class="fmt-title cto-color">Native &amp; Social</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-1080 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Morgan Stanley</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Ship Faster<br>with AI.</div><div class="b-subhead">Reduce time to market with IBM AI Integration Services — built for FSS.</div><div class="b-stat-row"><div><div class="b-stat-num">60%</div><div class="b-stat-lbl">faster time<br>to market</div></div><div><div class="b-stat-num">2×</div><div class="b-stat-lbl">engineering<br>velocity</div></div></div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">1080×1080</div></div>
+      <div class="banner-wrap"><div class="banner banner-1200 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div class="b-left"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Morgan Stanley</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Ship Faster<br>with AI.</div><div class="b-subhead">AI-native integration for FSS engineering teams.</div></div><div class="b-cta">Download Guide →</div></div><div class="b-right"><div class="b-stat"><div class="b-stat-num">60%</div><div class="b-stat-lbl">faster time to market</div></div><div class="b-stat"><div class="b-stat-num">2×</div><div class="b-stat-lbl">engineering velocity</div></div></div></div></div><div class="banner-label">1200×628</div></div>
+    </div></div>
+    <div class="fmt-section"><div class="fmt-title cto-color">Display</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-300 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Morgan Stanley</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Ship Faster<br>with AI.</div><div class="b-subhead">AI Integration for FSS.</div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">300×250</div></div>
+      <div class="banner-wrap"><div class="banner banner-160 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">MS</div><div class="b-eyebrow">CTO</div><div class="b-headline">Ship Faster<br>with AI.</div></div><div class="b-cta">Get Guide</div></div></div><div class="banner-label">160×600</div></div>
+      <div class="banner-wrap" style="width:100%;max-width:680px;"><div class="banner banner-728 cto-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-left"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-text"><div class="b-headline">Ship Faster with AI.</div><div class="b-subhead">IBM AI Integration Services — accelerating delivery for Morgan Stanley's engineering team.</div></div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">728×90</div></div>
+      <div class="banner-wrap"><div class="banner banner-320 cto-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-headline">Ship Faster with AI.</div><div class="b-cta">Guide →</div></div></div><div class="banner-label">320×50</div></div>
+    </div></div>
+  </div>
+
+  <div class="acct-set" id="ml-cto">
+    <div class="fmt-section"><div class="fmt-title cto-color">Native &amp; Social</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-1080 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Merrill Lynch</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Build Faster.<br>Scale Smarter.</div><div class="b-subhead">IBM AI Integration Services gives Merrill Lynch's engineering teams the velocity to modernise.</div><div class="b-stat-row"><div><div class="b-stat-num">60%</div><div class="b-stat-lbl">faster time<br>to market</div></div><div><div class="b-stat-num">2×</div><div class="b-stat-lbl">engineering<br>velocity</div></div></div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">1080×1080</div></div>
+      <div class="banner-wrap"><div class="banner banner-1200 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div class="b-left"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Merrill Lynch</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Build Faster.<br>Scale Smarter.</div><div class="b-subhead">AI-native integration for FSS engineering.</div></div><div class="b-cta">Download Guide →</div></div><div class="b-right"><div class="b-stat"><div class="b-stat-num">60%</div><div class="b-stat-lbl">faster time to market</div></div><div class="b-stat"><div class="b-stat-num">2×</div><div class="b-stat-lbl">engineering velocity</div></div></div></div></div><div class="banner-label">1200×628</div></div>
+    </div></div>
+    <div class="fmt-section"><div class="fmt-title cto-color">Display</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-300 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">Merrill Lynch</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Build Faster.<br>Scale Smarter.</div><div class="b-subhead">AI Integration for FSS.</div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">300×250</div></div>
+      <div class="banner-wrap"><div class="banner banner-160 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">ML</div><div class="b-eyebrow">CTO</div><div class="b-headline">Build Faster.<br>Scale Smarter.</div></div><div class="b-cta">Get Guide</div></div></div><div class="banner-label">160×600</div></div>
+      <div class="banner-wrap" style="width:100%;max-width:680px;"><div class="banner banner-728 cto-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-left"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-text"><div class="b-headline">Build Faster. Scale Smarter.</div><div class="b-subhead">IBM AI Integration Services — built for Merrill Lynch's engineering velocity.</div></div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">728×90</div></div>
+      <div class="banner-wrap"><div class="banner banner-320 cto-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-headline">Build Faster. Scale Smarter.</div><div class="b-cta">Guide →</div></div></div><div class="banner-label">320×50</div></div>
+    </div></div>
+  </div>
+
+  <div class="acct-set" id="ss-cto">
+    <div class="fmt-section"><div class="fmt-title cto-color">Native &amp; Social</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-1080 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">State Street</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Move Fast.<br>Stay Modern.</div><div class="b-subhead">IBM AI Integration Services helps State Street CTOs cut delivery cycles and build the AI-ready platform.</div><div class="b-stat-row"><div><div class="b-stat-num">60%</div><div class="b-stat-lbl">faster time<br>to market</div></div><div><div class="b-stat-num">2×</div><div class="b-stat-lbl">engineering<br>velocity</div></div></div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">1080×1080</div></div>
+      <div class="banner-wrap"><div class="banner banner-1200 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div class="b-left"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">State Street</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Move Fast.<br>Stay Modern.</div><div class="b-subhead">AI-native integration for FSS engineering.</div></div><div class="b-cta">Download Guide →</div></div><div class="b-right"><div class="b-stat"><div class="b-stat-num">60%</div><div class="b-stat-lbl">faster time to market</div></div><div class="b-stat"><div class="b-stat-num">2×</div><div class="b-stat-lbl">engineering velocity</div></div></div></div></div><div class="banner-label">1200×628</div></div>
+    </div></div>
+    <div class="fmt-section"><div class="fmt-title cto-color">Display</div><div class="banner-grid">
+      <div class="banner-wrap"><div class="banner banner-300 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">State Street</div><div class="b-eyebrow">For the CTO</div><div class="b-headline">Move Fast.<br>Stay Modern.</div><div class="b-subhead">AI Integration for FSS.</div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">300×250</div></div>
+      <div class="banner-wrap"><div class="banner banner-160 cto-banner"><div class="grid-bg"></div><div class="orb"></div><div class="banner-inner"><div><div class="b-logo">IBM</div><div class="b-divider"></div><div class="acct-tag">SS</div><div class="b-eyebrow">CTO</div><div class="b-headline">Move Fast.<br>Stay Modern.</div></div><div class="b-cta">Get Guide</div></div></div><div class="banner-label">160×600</div></div>
+      <div class="banner-wrap" style="width:100%;max-width:680px;"><div class="banner banner-728 cto-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-left"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-text"><div class="b-headline">Move Fast. Stay Modern.</div><div class="b-subhead">IBM AI Integration Services — accelerating State Street's engineering modernisation.</div></div></div><div class="b-cta">Download Guide →</div></div></div><div class="banner-label">728×90</div></div>
+      <div class="banner-wrap"><div class="banner banner-320 cto-banner"><div class="grid-bg"></div><div class="banner-inner"><div class="b-logo">IBM</div><div class="b-sep"></div><div class="b-headline">Move Fast. Stay Modern.</div><div class="b-cta">Guide →</div></div></div><div class="banner-label">320×50</div></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="blocker"><strong>Legal Approval Required</strong>All assets must be submitted for IBM legal review and brand approval before uploading to Influ2. Allow minimum 5 business days.</div>
+<footer>Made with IBM Bob · IBM Consulting · 2026</footer>
+<script>
+  document.querySelectorAll('.persona-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.persona-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.persona-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.persona).classList.add('active');
+    });
+  });
+  document.querySelectorAll('.acct-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const panel = tab.closest('.persona-panel');
+      panel.querySelectorAll('.acct-tab').forEach(t => t.classList.remove('active'));
+      panel.querySelectorAll('.acct-set').forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      panel.querySelector('#' + tab.dataset.acct).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
