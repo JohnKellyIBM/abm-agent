@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IBM Consulting ABM Agent</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #0f62fe;
+    --blue-dark: #0043ce;
+    --blue-light: #edf5ff;
+    --text: #161616;
+    --muted: #6f6f6f;
+    --border: #e0e0e0;
+    --bg: #f4f4f4;
+    --white: #ffffff;
+    --green: #198038;
+    --green-light: #defbe6;
+    --orange: #f1620a;
+    --orange-light: #fff2e8;
+    --surface: #ffffff;
+  }
+
+  /* ── Splash screen ── */
+  .splash {
+    position: fixed; inset: 0; background: #161616;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 9999; transition: opacity 0.5s ease;
+  }
+  .splash.hidden { opacity: 0; pointer-events: none; }
+  .splash-logo {
+    font-size: 56px; font-weight: 800; letter-spacing: -2px;
+    color: white; margin-bottom: 6px;
+  }
+  .splash-logo span { color: var(--blue); }
+  .splash-rule { width: 48px; height: 3px; background: var(--blue); margin: 20px auto; }
+  .splash-product {
+    font-size: 22px; font-weight: 300; color: #c6c6c6;
+    letter-spacing: 0.04em; text-align: center; line-height: 1.4;
+  }
+  .splash-product strong { color: white; font-weight: 600; }
+  .splash-sub {
+    font-size: 13px; color: #6f6f6f; margin-top: 12px;
+    text-align: center; max-width: 340px; line-height: 1.6;
+  }
+  .splash-cta {
+    margin-top: 40px; background: var(--blue); color: white;
+    border: none; padding: 14px 40px; border-radius: 4px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s; letter-spacing: 0.02em;
+  }
+  .splash-cta:hover { background: var(--blue-dark); }
+  .splash-powered {
+    position: absolute; bottom: 24px;
+    font-size: 11px; color: #393939; text-align: center;
+  }
+  .splash-powered span { color: #525252; }
+
+  /* ── Share modal ── */
+  .share-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 8888; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .share-modal-overlay.visible { opacity: 1; pointer-events: all; }
+  .share-modal {
+    background: white; border-radius: 8px; padding: 32px;
+    width: 100%; max-width: 440px; position: relative;
+  }
+  .share-modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .share-modal p  { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .share-url-row  { display: flex; gap: 8px; margin-bottom: 16px; }
+  .share-url-row input {
+    flex: 1; border: 1px solid var(--border); border-radius: 4px;
+    padding: 9px 12px; font-size: 13px; color: var(--text); background: var(--bg);
+  }
+  .copy-btn {
+    background: var(--blue); color: white; border: none;
+    padding: 0 16px; border-radius: 4px; font-size: 13px;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .copy-btn:hover { background: var(--blue-dark); }
+  .share-divider { text-align: center; font-size: 12px; color: var(--muted); margin: 12px 0; }
+  .share-channels { display: flex; gap: 10px; justify-content: center; }
+  .share-ch {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 12px 16px; border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; font-size: 12px; color: var(--muted);
+    background: white; transition: border-color 0.15s, color 0.15s; min-width: 80px;
+  }
+  .share-ch:hover { border-color: var(--blue); color: var(--blue); }
+  .share-ch svg { width: 22px; height: 22px; }
+  .share-close {
+    position: absolute; top: 16px; right: 16px; background: none;
+    border: none; font-size: 18px; cursor: pointer; color: var(--muted); line-height: 1;
+  }
+  .share-close:hover { color: var(--text); }
+  .copied-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #161616; color: white; padding: 10px 20px; border-radius: 4px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    z-index: 9999;
+  }
+  .copied-toast.show { opacity: 1; }
+
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: #161616;
+    color: white;
+    padding: 0 24px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .ibm-logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; color: white; }
+  .ibm-logo span { color: var(--blue); }
+  header h1 { font-size: 14px; font-weight: 400; color: #c6c6c6; border-left: 1px solid #393939; padding-left: 16px; }
+
+  /* ── Layout ── */
+  .shell {
+    display: flex;
+    flex: 1;
+    max-width: 900px;
+    margin: 32px auto;
+    width: 100%;
+    padding: 0 16px;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ── Chat window ── */
+  .chat-window {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    overflow-y: auto;
+    padding: 24px;
+    min-height: 420px;
+    max-height: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg { display: flex; gap: 12px; align-items: flex-start; }
+  .msg.agent { flex-direction: row; }
+  .msg.user  { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .agent .avatar { background: var(--blue); color: white; }
+  .user  .avatar { background: #393939; color: white; }
+
+  .bubble {
+    max-width: 72%;
+    padding: 12px 16px;
+    border-radius: 0 12px 12px 12px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .agent .bubble { background: var(--blue-light); color: var(--text); border-radius: 0 12px 12px 12px; }
+  .user  .bubble { background: #393939; color: white; border-radius: 12px 0 12px 12px; }
+
+  .bubble strong { display: block; margin-bottom: 4px; }
+  .bubble .step-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--blue); font-weight: 700; margin-bottom: 6px; display: block; }
+
+  /* Options inside bubble */
+  .options { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .opt-btn {
+    background: var(--white);
+    border: 1px solid var(--blue);
+    color: var(--blue);
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+  }
+  .opt-btn:hover { background: var(--blue); color: white; }
+  .opt-btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+
+  /* ── Input bar ── */
+  .input-bar {
+    display: flex;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    background: var(--white);
+    overflow: hidden;
+  }
+  .input-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--text);
+    background: transparent;
+  }
+  .input-bar input::placeholder { color: #a8a8a8; }
+  .send-btn {
+    background: var(--blue);
+    color: white;
+    border: none;
+    padding: 0 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { background: var(--blue-dark); }
+  .send-btn:disabled { background: #c6c6c6; cursor: default; }
+
+  /* ── Progress bar ── */
+  .progress-bar-wrap {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .progress-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill  { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.4s ease; }
+
+  /* ── Results section ── */
+  .results {
+    margin-top: 24px;
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .results.visible { display: flex; }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .result-card-header {
+    background: #161616;
+    color: white;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dl-btn {
+    background: var(--blue);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .dl-btn:hover { background: var(--blue-dark); }
+
+  .result-body { padding: 20px; }
+
+  .summary-grid { display: grid; grid-template-columns: 180px 1fr; gap: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .sg-row { display: contents; }
+  .sg-label, .sg-value { padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .sg-row:last-child .sg-label, .sg-row:last-child .sg-value { border-bottom: none; }
+  .sg-label { font-weight: 600; background: var(--bg); }
+  .sg-section { grid-column: 1/-1; background: #0f62fe; color: white; padding: 5px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .checklist-phase { margin-bottom: 20px; }
+  .phase-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: #0f62fe; color: white; padding: 6px 12px; border-radius: 4px; margin-bottom: 8px; display: inline-block; }
+  .checklist-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; align-items: flex-start; }
+  .checklist-item:last-child { border-bottom: none; }
+  .ci-check { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+  .ci-task { font-weight: 600; }
+  .ci-detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .ci-owner { font-size: 11px; color: var(--blue); margin-top: 2px; }
+
+  .banner-spec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .banner-spec-table th { background: var(--bg); padding: 8px 10px; text-align: left; border: 1px solid var(--border); font-weight: 600; font-size: 12px; }
+  .banner-spec-table td { padding: 8px 10px; border: 1px solid var(--border); vertical-align: top; }
+  .banner-spec-table tr:nth-child(even) td { background: #fafafa; }
+
+  .blocker-box { background: var(--orange-light); border-left: 3px solid var(--orange); padding: 10px 14px; border-radius: 4px; font-size: 13px; color: #5d2a00; margin: 12px 0; }
+  .blocker-box strong { display: block; margin-bottom: 4px; }
+
+  /* ── Typing indicator ── */
+  .typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+
+  footer { text-align: center; padding: 24px 0 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<!-- ── Splash screen ── -->
+<div class="splash" id="splash">
+  <div class="splash-logo">IBM<span>.</span></div>
+  <div class="splash-rule"></div>
+  <div class="splash-product"><strong>Consulting ABM Agent</strong><br>Account-Based Marketing Program Planner</div>
+  <div class="splash-sub">Answer a few questions and receive a fully customised ABM execution plan, checklist, and banner creative spec — in under 10 minutes.</div>
+  <button class="splash-cta" id="splashStart">Start Planning →</button>
+  <div class="splash-powered">Powered by <span>IBM Bob</span> &nbsp;·&nbsp; IBM Consulting &nbsp;·&nbsp; 2026</div>
+</div>
+
+<!-- ── Share modal ── -->
+<div class="share-modal-overlay" id="shareOverlay">
+  <div class="share-modal">
+    <button class="share-close" id="shareClose">✕</button>
+    <h2>Share this tool</h2>
+    <p>Copy the link below or share directly via email or LinkedIn.</p>
+    <div class="share-url-row">
+      <input type="text" id="shareUrlInput" readonly />
+      <button class="copy-btn" id="copyUrlBtn">Copy</button>
+    </div>
+    <div class="share-divider">— or share via —</div>
+    <div class="share-channels">
+      <button class="share-ch" id="shareEmail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+        Email
+      </button>
+      <button class="share-ch" id="shareLinkedIn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg>
+        LinkedIn
+      </button>
+      <button class="share-ch" id="shareSlack">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 01-2.523 2.521 2.527 2.527 0 01-2.52-2.521V2.522A2.527 2.527 0 0115.165 0a2.528 2.528 0 012.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 012.523 2.522A2.528 2.528 0 0115.165 24a2.527 2.527 0 01-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 01-2.52-2.523 2.526 2.526 0 012.52-2.52h6.313A2.527 2.527 0 0124 15.165a2.528 2.528 0 01-2.522 2.523h-6.313z"/></svg>
+        Slack
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Copied toast ── -->
+<div class="copied-toast" id="copiedToast">Link copied to clipboard!</div>
+
+<header>
+  <div class="ibm-logo">IBM<span>.</span></div>
+  <h1>Consulting ABM Agent</h1>
+  <div style="flex:1"></div>
+  <button class="dl-btn" id="shareBtn" style="font-size:12px;padding:6px 14px;display:flex;align-items:center;gap:6px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    Share
+  </button>
+</header>
+
+<div class="shell">
+
+  <!-- Chat window -->
+  <div class="chat-window" id="chatWindow"></div>
+
+  <!-- Progress -->
+  <div class="progress-bar-wrap" id="progressWrap">
+    <span id="progressLabel">Step 0 of 13</span>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-bar">
+    <input type="text" id="userInput" placeholder="Type your answer and press Enter…" autocomplete="off" />
+    <button class="send-btn" id="sendBtn">Send</button>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <!-- Program Summary -->
+    <div class="result-card">
+      <div class="result-card-header">
+        📋 Program Summary
+        <button class="dl-btn" id="dlSummary">Download Summary (.csv)</button>
+      </div>
+      <div class="result-body" id="summaryBody"></div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="result-card">
+      <div class="result-card-header">
+        ✅ Customised ABM Checklist
+        <button class="dl-btn" id="dlChecklist">Download Checklist (.csv)</button>
+      </div>
+      <div class="result-body" id="checklistBody"></div>
+    </div>
+
+    <!-- Banner Spec -->
+    <div class="result-card" id="bannerCard" style="display:none">
+      <div class="result-card-header">
+        🎨 Banner Creative Spec
+        <button class="dl-btn" id="dlBanner">Download Banner Spec (.csv)</button>
+      </div>
+      <div class="result-body" id="bannerBody"></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>Made with IBM Bob &nbsp;·&nbsp; IBM Consulting &nbsp;·&nbsp; 2026</footer>
+
+<script>
+// ── Splash ────────────────────────────────────────────────────────────────────
+document.getElementById('splashStart').addEventListener('click', () => {
+  const splash = document.getElementById('splash');
+  splash.classList.add('hidden');
+  setTimeout(() => { splash.style.display = 'none'; }, 500);
+});
+
+// ── Share ─────────────────────────────────────────────────────────────────────
+const shareOverlay = document.getElementById('shareOverlay');
+const shareUrlInput = document.getElementById('shareUrlInput');
+
+document.getElementById('shareBtn').addEventListener('click', () => {
+  shareUrlInput.value = window.location.href;
+  shareOverlay.classList.add('visible');
+});
+document.getElementById('shareClose').addEventListener('click', () => {
+  shareOverlay.classList.remove('visible');
+});
+shareOverlay.addEventListener('click', e => {
+  if (e.target === shareOverlay) shareOverlay.classList.remove('visible');
+});
+document.getElementById('copyUrlBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(window.location.href).catch(() => {
+    shareUrlInput.select(); document.execCommand('copy');
+  });
+  const toast = document.getElementById('copiedToast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+});
+document.getElementById('shareEmail').addEventListener('click', () => {
+  const url = encodeURIComponent(window.location.href);
+  const sub = encodeURIComponent('IBM Consulting ABM Agent — Plan your ABM program in minutes');
+  const body = encodeURIComponent('Hi,\n\nI wanted to share this IBM Consulting ABM Agent with you. It guides you through building a customised ABM program plan in under 10 minutes:\n\n' + window.location.href + '\n\nGive it a try!');
+  window.open(`mailto:?subject=${sub}&body=${body}`);
+});
+document.getElementById('shareLinkedIn').addEventListener('click', () => {
+  const url = encodeURIComponent(window.location.href);
+  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
+});
+document.getElementById('shareSlack').addEventListener('click', () => {
+  navigator.clipboard.writeText(window.location.href).catch(() => {});
+  const toast = document.getElementById('copiedToast');
+  toast.textContent = 'Link copied — paste it into Slack!';
+  toast.classList.add('show');
+  setTimeout(() => { toast.classList.remove('show'); toast.textContent = 'Link copied to clipboard!'; }, 2800);
+});
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const R = {};        // collected responses
+let step = 0;
+const TOTAL_STEPS = 13;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const chatWindow   = document.getElementById('chatWindow');
+const userInput    = document.getElementById('userInput');
+const sendBtn      = document.getElementById('sendBtn');
+const progressFill = document.getElementById('progressFill');
+const progressLabel= document.getElementById('progressLabel');
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function scrollBottom() { chatWindow.scrollTop = chatWindow.scrollHeight; }
+
+function setProgress(n, total) {
+  const pct = Math.round((n / total) * 100);
+  progressFill.style.width = pct + '%';
+  progressLabel.textContent = `Step ${n} of ${total}`;
+}
+
+function agentBubble(html, stepLabel) {
+  const msg = document.createElement('div');
+  msg.className = 'msg agent';
+  msg.innerHTML = `
+    <div class="avatar">AI</div>
+    <div class="bubble">
+      ${stepLabel ? `<span class="step-label">${stepLabel}</span>` : ''}
+      ${html}
+    </div>`;
+  chatWindow.appendChild(msg);
+  scrollBottom();
+  return msg;
+}
+
+function userBubble(text) {
+  const msg = document.createElement('div');
+  msg.className = 'msg user';
+  msg.innerHTML = `<div class="avatar">You</div><div class="bubble">${text}</div>`;
+  chatWindow.appendChild(msg);
+  scrollBottom();
+}
+
+function typing() {
+  const msg = document.createElement('div');
+  msg.className = 'msg agent';
+  msg.id = 'typing';
+  msg.innerHTML = `<div class="avatar">AI</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  chatWindow.appendChild(msg);
+  scrollBottom();
+  return msg;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing');
+  if (t) t.remove();
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function disableOptions() {
+  document.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+}
+
+function enableInput(placeholder) {
+  userInput.disabled = false;
+  userInput.placeholder = placeholder || 'Type your answer…';
+  sendBtn.disabled = false;
+  userInput.focus();
+}
+
+function disableInput() {
+  userInput.disabled = true;
+  sendBtn.disabled = true;
+}
+
+// ── Question flow ─────────────────────────────────────────────────────────────
+
+async function ask(html, stepLabel, options, inputPlaceholder) {
+  disableInput();
+  const t = typing();
+  await delay(600);
+  removeTyping();
+  const bubble = agentBubble(html, stepLabel);
+
+  if (options && options.length) {
+    const optDiv = document.createElement('div');
+    optDiv.className = 'options';
+    options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.textContent = `${i+1}. ${opt}`;
+      btn.addEventListener('click', () => {
+        disableOptions();
+        userBubble(opt);
+        resolveAnswer(opt);
+      });
+      optDiv.appendChild(btn);
+    });
+    bubble.querySelector('.bubble').appendChild(optDiv);
+    scrollBottom();
+  } else {
+    enableInput(inputPlaceholder || 'Type your answer and press Enter…');
+  }
+}
+
+let resolveAnswer;
+
+function waitForAnswer() {
+  return new Promise(resolve => { resolveAnswer = resolve; });
+}
+
+// ── Main flow ─────────────────────────────────────────────────────────────────
+
+async function runAgent() {
+  // Welcome
+  agentBubble(`
+    <strong>Welcome to the IBM Consulting ABM Agent</strong>
+    I'll guide you through building a customised Account-Based Marketing program in just a few minutes.<br><br>
+    Answer the questions below and I'll generate a tailored checklist, program summary, and banner creative spec — ready to download.
+  `);
+  await delay(400);
+
+  // Step 1 — Program Type
+  setProgress(1, TOTAL_STEPS);
+  ask('Is this a <strong>Pipeline Creation</strong> or <strong>Pipeline Progression</strong> program?',
+    'Step 1 of 13 — Program Type',
+    ['Pipeline Creation', 'Pipeline Progression']);
+  R.program_type = await waitForAnswer();
+
+  // Step 2 — Account list
+  setProgress(2, TOTAL_STEPS);
+  if (R.program_type === 'Pipeline Progression') {
+    ask('List the accounts with <strong>open opportunities</strong> you wish to target <em>(comma-separated)</em>.',
+      'Step 2 of 13 — Target Accounts', null, 'e.g. Morgan Stanley, Goldman Sachs');
+    R.accounts = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+
+    setProgress(3, TOTAL_STEPS);
+    ask('Is there an <strong>industry or regional cluster</strong> of accounts?',
+      'Step 3 of 13 — Clustering',
+      ['Yes — Industry cluster', 'Yes — Regional cluster', 'Yes — Both', 'No']);
+    const clusterAns = await waitForAnswer();
+    R.has_cluster = !clusterAns.startsWith('No');
+    R.cluster_type = clusterAns.startsWith('No') ? null
+      : clusterAns.includes('Both') ? 'Both'
+      : clusterAns.includes('Industry') ? 'Industry' : 'Regional';
+
+    if (R.has_cluster && (R.cluster_type === 'Industry' || R.cluster_type === 'Both')) {
+      ask('Which <strong>industries</strong>? <em>(comma-separated)</em>', null, null, 'e.g. Financial Services, Healthcare');
+      R.industries = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (R.has_cluster && (R.cluster_type === 'Regional' || R.cluster_type === 'Both')) {
+      ask('Which <strong>regions</strong>? <em>(comma-separated)</em>', null, null, 'e.g. North America, EMEA');
+      R.regions = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+  } else {
+    ask('Do you have an <strong>account list</strong> to target?',
+      'Step 2 of 13 — Account List',
+      ['Yes, I have a list', 'No, I need to build one']);
+    const hasList = (await waitForAnswer()).startsWith('Yes');
+    R.has_account_list = hasList;
+
+    if (hasList) {
+      ask('List your <strong>target accounts</strong> <em>(comma-separated)</em>.',
+        null, null, 'e.g. Morgan Stanley, Merrill Lynch, State Street');
+      R.accounts = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      ask('Which <strong>industries</strong> are you targeting? <em>(comma-separated)</em>',
+        'Step 3 of 13 — Industry Targeting', null, 'e.g. Financial Services, Insurance');
+      R.industries = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+      ask('Which <strong>specific accounts</strong> within those industries? <em>(comma-separated)</em>',
+        null, null, 'e.g. Citi, AIG, MetLife');
+      R.accounts = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+
+  // Target titles
+  setProgress(4, TOTAL_STEPS);
+  ask('Which <strong>titles</strong> are you targeting? <em>(comma-separated)</em>',
+    'Step 4 of 13 — Target Titles', null, 'e.g. CIO, CTO, VP of IT');
+  R.target_titles = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+
+  // Step 5 — KPIs
+  setProgress(5, TOTAL_STEPS);
+  ask('What is your <strong>primary KPI focus</strong>?',
+    'Step 5 of 13 — KPIs & Goals',
+    ['Meetings booked', 'Opportunities created', 'Pipeline $ generated', 'Account penetration depth', 'Multiple KPIs']);
+  R.kpi_focus = await waitForAnswer();
+
+  ask('Describe your <strong>overall program goals</strong> in 1–2 sentences.',
+    null, null, 'e.g. Drive $50M in new pipeline across FSS accounts by Q4');
+  R.program_goals = await waitForAnswer();
+
+  // Step 6 — Digital journey
+  setProgress(6, TOTAL_STEPS);
+  ask('What is your <strong>digital journey approach</strong>?',
+    'Step 6 of 13 — Digital Journey',
+    ['Awareness → Consideration → Decision', 'Direct to conversion (high-intent)', 'Nurture-based (long sales cycle)', 'Custom journey']);
+  R.journey_approach = await waitForAnswer();
+
+  // Step 7 — Value prop
+  setProgress(7, TOTAL_STEPS);
+  ask('What is your <strong>overarching value proposition</strong>?<br><em>Can be customised per account later.</em>',
+    'Step 7 of 13 — Value Proposition', null, 'e.g. Helping clients reduce complexity and accelerate transformation');
+  R.value_proposition = await waitForAnswer();
+
+  // Step 8 — Pain points
+  setProgress(8, TOTAL_STEPS);
+  ask('What are the key <strong>industry pain points</strong> you\'re addressing? <em>(comma-separated)</em>',
+    'Step 8 of 13 — Pain Points & Solutions', null, 'e.g. Tech debt, regulatory complexity, high ops cost');
+  R.pain_points = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+
+  ask('What <strong>solutions</strong> are you offering? <em>(comma-separated)</em>',
+    null, null, 'e.g. AI Integration Services, Cloud Modernisation');
+  R.solutions = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+
+  // Step 9 — Messaging
+  setProgress(9, TOTAL_STEPS);
+  ask('How will you <strong>tailor messaging</strong> for different C-level roles?',
+    'Step 9 of 13 — C-Level Messaging',
+    ['Persona-specific messaging for each title', 'Role-based value propositions', 'Unified message with role-specific CTAs', 'Custom approach']);
+  R.messaging_approach = await waitForAnswer();
+
+  // Step 10 — CTAs
+  setProgress(10, TOTAL_STEPS);
+  ask('Which <strong>CTAs</strong> will you use?',
+    'Step 10 of 13 — Call-to-Actions',
+    ['Learn More', 'Download Guide', 'Request Demo', 'Contact Us', 'Multiple CTAs']);
+  const ctaAns = await waitForAnswer();
+  if (ctaAns === 'Multiple CTAs') {
+    ask('List your CTAs <em>(comma-separated)</em>:', null, null, 'e.g. Request Demo, Download Guide');
+    R.ctas = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    R.ctas = [ctaAns];
+  }
+
+  // Step 11 — Lead management
+  setProgress(11, TOTAL_STEPS);
+  ask('Who will <strong>own lead management</strong> and follow-up?',
+    'Step 11 of 13 — Lead Management', null, 'e.g. Sales, Inside Sales, SDR team');
+  R.lead_owner = await waitForAnswer();
+
+  ask('What is your <strong>follow-up SLA</strong>?',
+    null,
+    ['Within 24 hours', 'Within 48 hours', 'Within 1 week', 'Custom SLA']);
+  R.follow_up_sla = await waitForAnswer();
+
+  // Step 12 — Banners
+  setProgress(12, TOTAL_STEPS);
+  ask('Would you like to create <strong>banner ads</strong> as part of this program?',
+    'Step 12 of 13 — Banner Ads',
+    ['Yes', 'No']);
+  R.create_banners = (await waitForAnswer()) === 'Yes';
+
+  if (R.create_banners) {
+    ask('How many <strong>banner variations</strong> do you need?',
+      null, null, 'e.g. 3');
+    R.banner_count = await waitForAnswer();
+
+    ask('Which <strong>ad formats</strong> do you need?',
+      null,
+      ['Display ads only', 'Native ads only', 'Social ads (LinkedIn) only', 'All formats']);
+    R.banner_formats = await waitForAnswer();
+
+    ask('What is your <strong>primary messaging angle</strong>?',
+      null,
+      ['Innovation & Transformation', 'Efficiency & Cost Reduction', 'Risk Mitigation & Security', 'Growth & Revenue']);
+    R.banner_angle = await waitForAnswer();
+
+    ask('When do you need these banners?',
+      null, null, 'e.g. August 1, 2026');
+    R.banner_deadline = await waitForAnswer();
+  }
+
+  // Step 13 — Program details
+  setProgress(13, TOTAL_STEPS);
+  ask('What is the <strong>name</strong> of this ABM program?',
+    'Step 13 of 13 — Program Details', null, 'e.g. watsonx FSS Campaign');
+  R.program_name = await waitForAnswer();
+
+  ask('When will this program <strong>start</strong>?',
+    null, null, 'e.g. 2026-08-01');
+  R.start_date = await waitForAnswer();
+
+  ask('What is your <strong>estimated budget</strong>?',
+    null, null, 'e.g. $30K');
+  R.budget = await waitForAnswer();
+
+  ask('Who are the key <strong>stakeholders</strong>? <em>(comma-separated)</em>',
+    null, null, 'e.g. John Kelly, Sales Lead, PMM');
+  R.stakeholders = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+
+  // Done
+  setProgress(13, 13);
+  disableInput();
+  userInput.placeholder = 'All done! See your outputs below.';
+
+  const t2 = typing();
+  await delay(900);
+  removeTyping();
+  agentBubble(`
+    <strong>✅ All done, ${R.stakeholders[0] || 'there'}!</strong><br>
+    Your customised ABM program for <strong>${(R.accounts||[]).join(', ')}</strong> is ready.<br>
+    Scroll down to view and download your outputs.
+  `);
+
+  generateOutputs();
+}
+
+// ── Generate outputs ──────────────────────────────────────────────────────────
+
+function generateOutputs() {
+  document.getElementById('results').classList.add('visible');
+
+  // Summary
+  const sumBody = document.getElementById('summaryBody');
+  sumBody.innerHTML = `
+    <div class="summary-grid">
+      <div class="sg-section">Program Overview</div>
+      <div class="sg-row"><div class="sg-label">Program Name</div><div class="sg-value">${R.program_name||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Program Type</div><div class="sg-value">${R.program_type||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Start Date</div><div class="sg-value">${R.start_date||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Budget</div><div class="sg-value">${R.budget||'—'}</div></div>
+      <div class="sg-section">Target Information</div>
+      <div class="sg-row"><div class="sg-label">Target Accounts</div><div class="sg-value">${(R.accounts||[]).join(', ')||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Target Titles</div><div class="sg-value">${(R.target_titles||[]).join(', ')||'—'}</div></div>
+      ${R.industries ? `<div class="sg-row"><div class="sg-label">Industries</div><div class="sg-value">${R.industries.join(', ')}</div></div>` : ''}
+      ${R.regions    ? `<div class="sg-row"><div class="sg-label">Regions</div><div class="sg-value">${R.regions.join(', ')}</div></div>` : ''}
+      <div class="sg-section">Goals & KPIs</div>
+      <div class="sg-row"><div class="sg-label">KPI Focus</div><div class="sg-value">${R.kpi_focus||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Program Goals</div><div class="sg-value">${R.program_goals||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Digital Journey</div><div class="sg-value">${R.journey_approach||'—'}</div></div>
+      <div class="sg-section">Messaging</div>
+      <div class="sg-row"><div class="sg-label">Value Proposition</div><div class="sg-value">${R.value_proposition||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Pain Points</div><div class="sg-value">${(R.pain_points||[]).join(', ')||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Solutions</div><div class="sg-value">${(R.solutions||[]).join(', ')||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Messaging Approach</div><div class="sg-value">${R.messaging_approach||'—'}</div></div>
+      <div class="sg-section">Execution</div>
+      <div class="sg-row"><div class="sg-label">CTAs</div><div class="sg-value">${(R.ctas||[]).join(', ')||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Lead Owner</div><div class="sg-value">${R.lead_owner||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Follow-up SLA</div><div class="sg-value">${R.follow_up_sla||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Stakeholders</div><div class="sg-value">${(R.stakeholders||[]).join(', ')||'—'}</div></div>
+      <div class="sg-row"><div class="sg-label">Create Banners</div><div class="sg-value">${R.create_banners ? 'Yes — ' + R.banner_count + ' variations, ' + R.banner_formats : 'No'}</div></div>
+    </div>`;
+
+  // Checklist
+  const clBody = document.getElementById('checklistBody');
+  const phases = buildChecklist();
+  clBody.innerHTML = phases.map(p => `
+    <div class="checklist-phase">
+      <div class="phase-title">${p.phase}</div>
+      ${p.items.map(item => `
+        <div class="checklist-item">
+          <div class="ci-check"></div>
+          <div>
+            <div class="ci-task">${item.task}</div>
+            <div class="ci-detail">${item.detail}</div>
+            <div class="ci-owner">Owner: ${item.owner} &nbsp;·&nbsp; ${item.timeline}</div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  // Banner spec
+  if (R.create_banners) {
+    document.getElementById('bannerCard').style.display = 'block';
+    const bBody = document.getElementById('bannerBody');
+    const titles = (R.target_titles||[]);
+    const accounts = (R.accounts||[]);
+    bBody.innerHTML = `
+      <p style="font-size:13px;margin-bottom:16px;">
+        <strong>Program:</strong> ${R.program_name} &nbsp;·&nbsp;
+        <strong>Accounts:</strong> ${accounts.join(', ')} &nbsp;·&nbsp;
+        <strong>Titles:</strong> ${titles.join(', ')} &nbsp;·&nbsp;
+        <strong>Angle:</strong> ${R.banner_angle} &nbsp;·&nbsp;
+        <strong>Deadline:</strong> ${R.banner_deadline}
+      </p>
+      <table class="banner-spec-table">
+        <thead><tr><th>Format</th><th>Sizes</th><th>Title Limit</th><th>Text Limit</th><th>CTA</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Native Image</strong></td><td>1080×1080, 1200×628</td><td>Max 30 chars</td><td>Max 90 chars</td><td>${(R.ctas||[]).join(' / ')}</td></tr>
+          <tr><td><strong>Display Image</strong></td><td>300×250, 728×90, 160×600, 970×250, 320×50</td><td>—</td><td>No limit</td><td>${(R.ctas||[]).join(' / ')}</td></tr>
+          <tr><td><strong>Social (LinkedIn)</strong></td><td>1080×1080, 1200×628</td><td>Max 40 chars</td><td>Max 255 chars</td><td>${(R.ctas||[]).join(' / ')}</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:16px;font-weight:600;font-size:13px;margin-bottom:8px;">Creative Variations (${R.banner_count})</div>
+      <table class="banner-spec-table">
+        <thead><tr><th>Variation</th><th>Persona</th><th>Draft Headline</th><th>Draft Primary Text</th><th>CTA</th></tr></thead>
+        <tbody>
+          ${(titles.slice(0,3)).map((t,i) => `
+          <tr>
+            <td>V${i+1}</td>
+            <td>${t}</td>
+            <td><em>[${t}-specific headline — max ${i===0?30:40} chars]</em></td>
+            <td><em>${R.value_proposition} — addressing ${(R.pain_points||[]).slice(0,2).join(' and ')} for ${accounts[0]||'target accounts'}.</em></td>
+            <td>${R.ctas[i % R.ctas.length]}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="blocker-box" style="margin-top:16px;">
+        <strong>⚠️ Legal Approval Required</strong>
+        All banner assets must receive legal review and brand approval before uploading to your ABM vendor. Allow minimum 5 business days.
+      </div>`;
+  }
+
+  // Wire download buttons
+  document.getElementById('dlSummary').addEventListener('click', () => downloadCSV(summaryToCSV(), `${slug(R.program_name)}_Summary.csv`));
+  document.getElementById('dlChecklist').addEventListener('click', () => downloadCSV(checklistToCSV(phases), `${slug(R.program_name)}_Checklist.csv`));
+  if (R.create_banners) {
+    document.getElementById('dlBanner').addEventListener('click', () => downloadCSV(bannerToCSV(), `${slug(R.program_name)}_BannerSpec.csv`));
+  }
+
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Checklist builder ─────────────────────────────────────────────────────────
+
+function buildChecklist() {
+  const accts = (R.accounts||[]).join(', ');
+  const titles = (R.target_titles||[]).join(', ');
+  const isPipeline = R.program_type === 'Pipeline Creation';
+
+  const pre = [
+    { task: 'Define ABM Program Goals', detail: `${R.program_type} — KPI: ${R.kpi_focus}. Goal: ${R.program_goals}`, owner: 'PMM', timeline: 'Week 1' },
+    { task: 'Executive Sponsorship & Alignment', detail: 'Secure Managing Partner/Director-level executive sponsor for program credibility and C-suite access', owner: 'Biz Leader', timeline: 'Week 1' },
+    { task: 'Secure Budget & Resources', detail: `Confirm ${R.budget} budget allocation, internal resources, timeline, content budget`, owner: 'PMM', timeline: 'Week 1' },
+    { task: `Persona Focus: ${titles}`, detail: `Define pain points and priorities for ${titles} personas at ${accts}`, owner: 'PMM', timeline: 'Week 1–2' },
+    { task: 'Competitive Intelligence Gathering', detail: `Research competitor presence at ${accts}`, owner: 'Sales/PMM', timeline: 'Week 2' },
+    { task: 'Account Research & Intelligence', detail: `Research each account: business priorities, recent news, tech stack, buying committee for ${accts}`, owner: 'Sales/PMM', timeline: 'Week 2' },
+    { task: 'Existing Relationship Mapping', detail: 'Map current IBM relationships: who knows whom, relationship strength, past projects', owner: 'Sales', timeline: 'Week 2' },
+    { task: 'Account Planning Sessions', detail: `Meet with LCPs, Client Partners, Directors for ${accts} to understand scope, interest areas`, owner: 'PMM', timeline: 'Week 2–3' },
+    { task: 'Contact Mapping & Gap Analysis', detail: `Identify existing ${titles} contacts vs. needed contacts across ${accts}`, owner: 'Sales', timeline: 'Week 2–3' },
+    { task: 'Account-Specific Pain Point Identification', detail: `Document ${(R.pain_points||[]).join(', ')} at each account; tie to ${(R.solutions||[]).join(', ')} opportunity`, owner: 'PMM', timeline: 'Week 3' },
+    { task: 'Develop Persona-Specific Value Props', detail: `Create ${titles} messaging based on ${R.value_proposition}`, owner: 'PMM', timeline: 'Week 3–4' },
+    { task: 'Content Audit & Gap Analysis', detail: `Review existing ${(R.solutions||[]).join(', ')} content; identify what can be personalised vs. needs creation`, owner: 'Content', timeline: 'Week 3–4' },
+    { task: 'ABM Vendor Selection & Setup', detail: 'Confirm vendor is on IBM approved list, complete contracting, set up account and targeting', owner: 'PMM', timeline: 'Week 3–4' },
+    { task: 'Legal Review & Compliance', detail: 'Review messaging, claims, data usage, GDPR compliance for legal/compliance approval', owner: 'PMM', timeline: 'Week 4' },
+    { task: 'Technology Stack Setup', detail: 'Setup tracking (UTM codes), CRM integration, landing page platform, analytics, attribution', owner: 'Marketing Ops', timeline: 'Week 4' },
+    { task: 'Create Measurement Framework', detail: `Define success metrics tied to ${R.kpi_focus}: meetings, pipeline created, account penetration`, owner: 'PMM', timeline: 'Week 4' },
+    { task: 'Sales Playbook Development', detail: `Create sales playbook with ${titles} messaging, objection handling for ${(R.pain_points||[]).join(', ')}, competitive positioning`, owner: 'PMM', timeline: 'Week 4' },
+    { task: 'Event & Experience Planning', detail: `Plan executive briefings, roundtables, innovation center visits for ${titles} audience`, owner: 'PMM', timeline: 'Week 4' },
+  ];
+
+  const during = [
+    { task: 'Content Personalization', detail: `Create persona-specific content for ${titles} at each account. ${R.create_banners ? 'Includes banners ('+R.banner_count+' variations, '+R.banner_formats+').' : ''} CTAs: ${(R.ctas||[]).join(', ')}`, owner: 'Content', timeline: 'Week 5–6' },
+    { task: 'Upload Target Lists to ABM Vendor', detail: `Provide account lists and ${titles} contact lists with proper data governance`, owner: 'PMM', timeline: 'Week 6' },
+    { task: 'Configure Vendor Campaigns', detail: `Set up campaigns: targeting by account + title (${titles}), budget allocation, flight dates from ${R.start_date}`, owner: 'PMM', timeline: 'Week 6–7' },
+    { task: 'Sales Enablement & Training', detail: `Brief sales on program, ${titles} messaging, how to read engagement signals, ${R.follow_up_sla} follow-up SLA`, owner: 'PMM', timeline: 'Week 7' },
+    { task: 'Launch Campaigns', detail: `Activate digital campaigns, email sequences, and sales outreach simultaneously from ${R.start_date}`, owner: 'PMM', timeline: R.start_date },
+    { task: 'Weekly Monitoring', detail: 'Monitor campaign performance: impressions, clicks, engagement, website visits, intent signals by account', owner: 'PMM', timeline: 'Ongoing' },
+    { task: `Lead Routing & Follow-up (SLA: ${R.follow_up_sla})`, detail: `Route engaged ${titles} contacts to ${R.lead_owner}. Ensure follow-up ${R.follow_up_sla}`, owner: R.lead_owner, timeline: 'Ongoing' },
+    { task: 'Sales & Marketing Sync Meetings', detail: 'Weekly check-ins with sales to review engagement, adjust messaging, coordinate outreach', owner: 'PMM', timeline: 'Weekly' },
+    { task: 'Campaign Optimization', detail: `Adjust targeting, creative, messaging based on performance data. Test ${(R.ctas||[]).join(' vs. ')} CTA performance`, owner: 'PMM', timeline: 'Bi-weekly' },
+    { task: 'Executive Briefing Coordination', detail: `Schedule executive briefings for ${titles} showing strong engagement signals`, owner: 'Sales', timeline: 'Ongoing' },
+  ];
+
+  const post = [
+    { task: '30-Day Performance Review', detail: `Review metrics: reach, engagement, meetings booked, ${R.kpi_focus} across all ${(R.accounts||[]).length} accounts`, owner: 'PMM', timeline: 'Day 30' },
+    { task: '60-Day Performance Review', detail: `Comprehensive review: ROI, ${R.kpi_focus}, pipeline progression, account penetration at ${accts}`, owner: 'PMM', timeline: 'Day 60' },
+    { task: 'Account-Level Analysis', detail: `Analyse which accounts engaged most with ${titles} messaging and why`, owner: 'PMM', timeline: 'Day 60' },
+    { task: 'Content Performance Analysis', detail: `Compare ${(R.ctas||[]).join(' vs. ')} CTA performance. Assess ${R.banner_angle||'messaging'} resonance`, owner: 'PMM', timeline: 'Day 60' },
+    { task: 'Sales Feedback Collection', detail: `Gather feedback from ${R.lead_owner} on lead quality, messaging effectiveness, ${R.follow_up_sla} SLA performance`, owner: 'PMM', timeline: 'Day 60' },
+    { task: 'Plan Next Wave', detail: 'Transition high-engagement accounts to in-person targeted program. Plan next wave with updated account list', owner: 'PMM', timeline: 'Day 60' },
+  ];
+
+  return [
+    { phase: 'Pre-Execution', items: pre },
+    { phase: 'During Execution', items: during },
+    { phase: 'Post-Execution', items: post },
+  ];
+}
+
+// ── CSV helpers ───────────────────────────────────────────────────────────────
+
+function csvEsc(v) { return '"' + String(v||'').replace(/"/g,'""') + '"'; }
+
+function summaryToCSV() {
+  const rows = [
+    ['Field','Value'],
+    ['Program Name', R.program_name],
+    ['Program Type', R.program_type],
+    ['Start Date', R.start_date],
+    ['Budget', R.budget],
+    ['Target Accounts', (R.accounts||[]).join(', ')],
+    ['Target Titles', (R.target_titles||[]).join(', ')],
+    ['Industries', (R.industries||[]).join(', ')],
+    ['Regions', (R.regions||[]).join(', ')],
+    ['KPI Focus', R.kpi_focus],
+    ['Program Goals', R.program_goals],
+    ['Digital Journey', R.journey_approach],
+    ['Value Proposition', R.value_proposition],
+    ['Pain Points', (R.pain_points||[]).join(', ')],
+    ['Solutions', (R.solutions||[]).join(', ')],
+    ['Messaging Approach', R.messaging_approach],
+    ['CTAs', (R.ctas||[]).join(', ')],
+    ['Lead Owner', R.lead_owner],
+    ['Follow-up SLA', R.follow_up_sla],
+    ['Stakeholders', (R.stakeholders||[]).join(', ')],
+    ['Create Banners', R.create_banners ? 'Yes' : 'No'],
+  ];
+  return rows.map(r => r.map(csvEsc).join(',')).join('\n');
+}
+
+function checklistToCSV(phases) {
+  const rows = [['Phase','Task','Details','Owner','Timeline','Status']];
+  phases.forEach(p => p.items.forEach(i => rows.push([p.phase, i.task, i.detail, i.owner, i.timeline, ''])));
+  return rows.map(r => r.map(csvEsc).join(',')).join('\n');
+}
+
+function bannerToCSV() {
+  const rows = [
+    ['Format','Sizes','Title Limit','Text Limit','CTA','Notes'],
+    ['Native Image','1080x1080, 1200x628','Max 30 chars','Max 90 chars',(R.ctas||[]).join(' / '),'IBM brand colors'],
+    ['Display Image','300x250, 728x90, 160x600, 970x250, 320x50','—','No limit',(R.ctas||[]).join(' / '),'Ensure readability at all sizes'],
+    ['Social (LinkedIn)','1080x1080, 1200x628','Max 40 chars','Max 255 chars',(R.ctas||[]).join(' / '),'Professional B2B tone'],
+  ];
+  return rows.map(r => r.map(csvEsc).join(',')).join('\n');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function slug(s) { return (s||'ABM').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,''); }
+
+// ── Input handling ────────────────────────────────────────────────────────────
+
+function submitInput() {
+  const val = userInput.value.trim();
+  if (!val || userInput.disabled) return;
+  disableInput();
+  userBubble(val);
+  userInput.value = '';
+  resolveAnswer(val);
+}
+
+sendBtn.addEventListener('click', submitInput);
+userInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitInput(); });
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+disableInput();
+runAgent();
+</script>
+</body>
+</html>
