@@ -421,10 +421,26 @@
 
     <!-- Live Banner Ads -->
     <div class="result-card" id="liveBannerCard" style="display:none">
-      <div class="result-card-header">
-        🖼 Banner Ads — By Account &amp; Persona
-      </div>
+      <div class="result-card-header">🖼 Banner Ads — By Account &amp; Persona</div>
       <div class="result-body" id="liveBannerBody"></div>
+    </div>
+
+    <!-- Brochure -->
+    <div class="result-card" id="brochureCard" style="display:none">
+      <div class="result-card-header">
+        📄 Brochure — By Account &amp; Persona
+        <button class="dl-btn" id="dlBrochure">Download (.html)</button>
+      </div>
+      <div class="result-body" id="brochureBody"></div>
+    </div>
+
+    <!-- Landing Pages -->
+    <div class="result-card" id="landingCard" style="display:none">
+      <div class="result-card-header">
+        🌐 Landing Pages — By Account &amp; Persona
+        <button class="dl-btn" id="dlLanding">Download (.html)</button>
+      </div>
+      <div class="result-body" id="landingBody"></div>
     </div>
 
   </div>
@@ -483,7 +499,7 @@ document.getElementById('shareSlack').addEventListener('click', () => {
 // ── State ─────────────────────────────────────────────────────────────────────
 const R = {};        // collected responses
 let step = 0;
-const TOTAL_STEPS = 13;
+const TOTAL_STEPS = 14;
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const chatWindow   = document.getElementById('chatWindow');
@@ -660,8 +676,17 @@ async function runAgent() {
   // Target titles
   setProgress(4, TOTAL_STEPS);
   ask('Which <strong>titles</strong> are you targeting? <em>(comma-separated)</em>',
-    'Step 4 of 13 — Target Titles', null, 'e.g. CIO, CTO, VP of IT');
+    'Step 4 of 14 — Target Titles', null, 'e.g. CIO, CTO, VP of IT');
   R.target_titles = (await waitForAnswer()).split(',').map(s => s.trim()).filter(Boolean);
+
+  // Step 4b — Asset types to create
+  ask('Which <strong>assets</strong> would you like me to create for this program?',
+    'Step 4b of 14 — Content Assets',
+    ['Banners only', 'Brochure only', 'Landing Pages only', 'Banners + Brochure', 'Banners + Landing Pages', 'All three (Banners, Brochure & Landing Pages)']);
+  const assetAns = await waitForAnswer();
+  R.create_asset_banners   = assetAns.toLowerCase().includes('banner') || assetAns.toLowerCase().includes('all');
+  R.create_asset_brochure  = assetAns.toLowerCase().includes('brochure') || assetAns.toLowerCase().includes('all');
+  R.create_asset_landing   = assetAns.toLowerCase().includes('landing') || assetAns.toLowerCase().includes('all');
 
   // Step 5 — KPIs
   setProgress(5, TOTAL_STEPS);
@@ -875,10 +900,24 @@ function generateOutputs() {
         All banner assets must receive legal review and brand approval before uploading to your ABM vendor. Allow minimum 5 business days.
       </div>`;
 
-    if (R.generate_banners_now) {
+    if (R.generate_banners_now || R.create_asset_banners) {
       document.getElementById('liveBannerCard').style.display = 'block';
       renderLiveBanners();
     }
+  }
+
+  // Brochure
+  if (R.create_asset_brochure) {
+    document.getElementById('brochureCard').style.display = 'block';
+    renderBrochure();
+    document.getElementById('dlBrochure').addEventListener('click', () => downloadHTML(buildBrochureHTML(), `${slug(R.program_name)}_Brochure.html`));
+  }
+
+  // Landing pages
+  if (R.create_asset_landing) {
+    document.getElementById('landingCard').style.display = 'block';
+    renderLandingPages();
+    document.getElementById('dlLanding').addEventListener('click', () => downloadHTML(buildLandingHTML(), `${slug(R.program_name)}_LandingPages.html`));
   }
 
   // Wire download buttons
@@ -1105,6 +1144,204 @@ window.showBannerTab = function(id) {
     btn.style.color = active ? 'white' : acc;
   });
 };
+
+// ── Brochure renderer ─────────────────────────────────────────────────────────
+
+function getPersonaCfg(title, account) {
+  const t = (title||'').toUpperCase();
+  const sol  = (R.solutions||['AI Integration Services'])[0];
+  const pain = (R.pain_points||[]).slice(0,2).join(' and ') || 'complexity and legacy systems';
+  const vp   = R.value_proposition || 'Transform your business with IBM AI';
+  const cta1 = (R.ctas||['Request Demo'])[0];
+  const cta2 = (R.ctas||[cta1])[1] || cta1;
+  if (t.includes('CIO')) return { color:'#0f62fe', h1:'Cut Complexity.', h2:'Transform Now.', role:'Chief Information Officer', challenge:`${account}'s CIO agenda demands eliminating ${pain} while delivering AI-ready infrastructure at scale.`, value:`IBM ${sol} reduces tech debt by up to 40% and accelerates deployment 3× — giving your organisation the foundation to compete.`, cta:cta1 };
+  if (t.includes('CTO')) return { color:'#7c5cd8', h1:'Ship Faster', h2:'with AI.', role:'Chief Technology Officer', challenge:`${account}'s engineering teams face mounting pressure to reduce time to market while modernising a complex legacy stack.`, value:`IBM ${sol} accelerates delivery cycles by 60% and doubles engineering velocity — so your teams can build what matters, faster.`, cta:cta2 };
+  if (t.includes('CFO')) return { color:'#198038', h1:'Reduce Cost.', h2:'Drive Value.', role:'Chief Financial Officer', challenge:`${account}'s CFO needs measurable ROI from technology investment while managing regulatory and operational cost pressure.`, value:`IBM ${sol} delivers a documented ROI within 12 months by reducing operational overhead and accelerating revenue-generating initiatives.`, cta:cta1 };
+  if (t.includes('CMO')) return { color:'#f1620a', h1:'Grow Faster.', h2:'With AI.', role:'Chief Marketing Officer', challenge:`${account}'s CMO is under pressure to grow pipeline faster while personalising engagement at scale across complex B2B buying committees.`, value:`IBM ${sol} powers AI-driven personalisation and account intelligence — turning data into revenue-generating engagement.`, cta:cta2 };
+  return { color:'#0f62fe', h1:'Transform Now.', h2:'with IBM AI.', role:title, challenge:`${account} faces ${pain} and needs a trusted partner to accelerate transformation.`, value:`IBM ${sol} — ${vp}.`, cta:cta1 };
+}
+
+function renderBrochure() {
+  const accounts = R.accounts || [];
+  const titles   = R.target_titles || [];
+  const sol      = (R.solutions||['AI Integration Services'])[0];
+  const prog     = R.program_name || 'ABM Program';
+
+  let tabsHTML = `<div style="display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap;">`;
+  titles.forEach((t,i) => {
+    const cfg = getPersonaCfg(t,'');
+    tabsHTML += `<button onclick="showBrochureTab('brtab-${i}')" id="btn-brtab-${i}" style="padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ${cfg.color};background:${i===0?cfg.color:'white'};color:${i===0?'white':cfg.color};">${t}</button>`;
+  });
+  tabsHTML += `</div>`;
+
+  let panelsHTML = '';
+  titles.forEach((title, ti) => {
+    panelsHTML += `<div id="brtab-${ti}" style="display:${ti===0?'flex':'none'};flex-wrap:wrap;gap:20px;">`;
+    accounts.forEach(account => {
+      const cfg = getPersonaCfg(title, account);
+      panelsHTML += `
+        <div style="width:280px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;">
+          <div style="background:${cfg.color};padding:20px;position:relative;overflow:hidden;">
+            <div style="font-family:Arial Black,sans-serif;font-weight:900;letter-spacing:3px;color:white;font-size:11px;margin-bottom:8px;">IBM</div>
+            <div style="color:white;font-weight:800;font-size:18px;line-height:1.2;">${cfg.h1}<br>${cfg.h2}</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.7);margin-top:6px;">${cfg.role}</div>
+            <div style="position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.08);right:-30px;top:-20px;"></div>
+          </div>
+          <div style="padding:16px;background:white;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;color:${cfg.color};margin-bottom:6px;">For ${account}</div>
+            <div style="font-size:12px;font-weight:700;color:#161616;margin-bottom:6px;">The Challenge</div>
+            <div style="font-size:11px;color:#525252;line-height:1.5;margin-bottom:12px;">${cfg.challenge}</div>
+            <div style="font-size:12px;font-weight:700;color:#161616;margin-bottom:6px;">How IBM Helps</div>
+            <div style="font-size:11px;color:#525252;line-height:1.5;margin-bottom:12px;">${cfg.value}</div>
+            <div style="background:#f4f4f4;border-radius:4px;padding:10px;margin-bottom:12px;">
+              <div style="font-size:10px;font-weight:700;color:#161616;margin-bottom:4px;">IBM ${sol}</div>
+              <div style="font-size:10px;color:#525252;">✓ Reduces complexity &amp; tech debt<br>✓ Accelerates time to value<br>✓ Enterprise-grade security &amp; compliance<br>✓ Proven in Financial Services</div>
+            </div>
+            <div style="background:${cfg.color};color:white;padding:8px 14px;border-radius:2px;font-size:10px;font-weight:700;text-align:center;">${cfg.cta} →</div>
+          </div>
+        </div>`;
+    });
+    panelsHTML += `</div>`;
+  });
+
+  document.getElementById('brochureBody').innerHTML = `
+    <p style="font-size:13px;color:#6f6f6f;margin-bottom:20px;">One-page brochure per account, personalised by persona. Select a persona tab to preview.</p>
+    ${tabsHTML}
+    ${panelsHTML}
+    <div class="blocker-box" style="margin-top:16px;"><strong>⚠️ Legal Approval Required</strong> All brochure content must be reviewed by IBM legal before distribution.</div>`;
+}
+
+window.showBrochureTab = function(id) {
+  document.querySelectorAll('[id^="brtab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById(id).style.display = 'flex';
+  document.querySelectorAll('[id^="btn-brtab-"]').forEach(btn => {
+    const active = btn.id === 'btn-' + id;
+    btn.style.background = active ? btn.style.borderColor : 'white';
+    btn.style.color = active ? 'white' : btn.style.borderColor;
+  });
+};
+
+function buildBrochureHTML() {
+  const accounts = R.accounts || [];
+  const titles   = R.target_titles || [];
+  const sol      = (R.solutions||['AI Integration Services'])[0];
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${R.program_name||'ABM'} Brochure</title></head><body style="font-family:-apple-system,sans-serif;background:#f4f4f4;padding:24px;">`;
+  html += `<h1 style="font-size:18px;margin-bottom:24px;">${R.program_name||'ABM'} — Brochures</h1>`;
+  titles.forEach(title => {
+    html += `<h2 style="font-size:14px;margin:24px 0 12px;">${title}</h2><div style="display:flex;flex-wrap:wrap;gap:16px;">`;
+    accounts.forEach(account => {
+      const cfg = getPersonaCfg(title, account);
+      html += `<div style="width:260px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;"><div style="background:${cfg.color};padding:16px;"><div style="font-family:Arial Black,sans-serif;font-weight:900;letter-spacing:3px;color:white;font-size:10px;margin-bottom:6px;">IBM</div><div style="color:white;font-weight:800;font-size:16px;">${cfg.h1} ${cfg.h2}</div><div style="font-size:9px;color:rgba(255,255,255,0.7);margin-top:4px;">${cfg.role} · ${account}</div></div><div style="padding:14px;background:white;"><p style="font-size:11px;font-weight:700;margin-bottom:4px;">The Challenge</p><p style="font-size:10px;color:#525252;margin-bottom:10px;">${cfg.challenge}</p><p style="font-size:11px;font-weight:700;margin-bottom:4px;">How IBM Helps</p><p style="font-size:10px;color:#525252;margin-bottom:10px;">${cfg.value}</p><div style="background:${cfg.color};color:white;padding:7px;border-radius:2px;font-size:10px;font-weight:700;text-align:center;">${cfg.cta}</div></div></div>`;
+    });
+    html += `</div>`;
+  });
+  html += `<p style="font-size:11px;color:#a8a8a8;margin-top:32px;">Made with IBM Bob · IBM Consulting · 2026</p></body></html>`;
+  return html;
+}
+
+// ── Landing page renderer ─────────────────────────────────────────────────────
+
+function renderLandingPages() {
+  const accounts = R.accounts || [];
+  const titles   = R.target_titles || [];
+  const sol      = (R.solutions||['AI Integration Services'])[0];
+
+  let tabsHTML = `<div style="display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap;">`;
+  titles.forEach((t,i) => {
+    const cfg = getPersonaCfg(t,'');
+    tabsHTML += `<button onclick="showLandingTab('lptab-${i}')" id="btn-lptab-${i}" style="padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ${cfg.color};background:${i===0?cfg.color:'white'};color:${i===0?'white':cfg.color};">${t}</button>`;
+  });
+  tabsHTML += `</div>`;
+
+  let panelsHTML = '';
+  titles.forEach((title, ti) => {
+    panelsHTML += `<div id="lptab-${ti}" style="display:${ti===0?'flex':'none'};flex-wrap:wrap;gap:20px;">`;
+    accounts.forEach(account => {
+      const cfg = getPersonaCfg(title, account);
+      const stats = [
+        { n:'40%', l:'Tech debt reduction' },
+        { n:'3×',  l:'Faster deployment' },
+        { n:'60%', l:'Faster time to market' },
+      ];
+      panelsHTML += `
+        <div style="width:300px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;background:white;">
+          <!-- Hero -->
+          <div style="background:#161616;padding:20px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${cfg.color};"></div>
+            <div style="position:absolute;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,${cfg.color}33 0%,transparent 70%);right:-30px;top:-20px;"></div>
+            <div style="font-family:Arial Black,sans-serif;font-weight:900;letter-spacing:3px;color:white;font-size:10px;margin-bottom:8px;">IBM</div>
+            <div style="display:inline-block;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:2px 6px;border-radius:2px;background:${cfg.color}33;color:${cfg.color};margin-bottom:6px;">${account}</div>
+            <div style="color:white;font-weight:800;font-size:20px;line-height:1.15;">${cfg.h1}<br>${cfg.h2}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:6px;">${cfg.role}</div>
+          </div>
+          <!-- Stats bar -->
+          <div style="display:flex;background:#f4f4f4;border-bottom:1px solid #e0e0e0;">
+            ${stats.map(s=>`<div style="flex:1;padding:8px;text-align:center;border-right:1px solid #e0e0e0;"><div style="font-size:16px;font-weight:800;color:${cfg.color};">${s.n}</div><div style="font-size:8px;color:#6f6f6f;">${s.l}</div></div>`).join('')}
+          </div>
+          <!-- Body -->
+          <div style="padding:16px;">
+            <div style="font-size:12px;font-weight:700;color:#161616;margin-bottom:6px;">The Challenge</div>
+            <div style="font-size:11px;color:#525252;line-height:1.5;margin-bottom:12px;">${cfg.challenge}</div>
+            <div style="font-size:12px;font-weight:700;color:#161616;margin-bottom:6px;">Our Solution</div>
+            <div style="font-size:11px;color:#525252;line-height:1.5;margin-bottom:12px;">${cfg.value}</div>
+            <div style="font-size:12px;font-weight:700;color:#161616;margin-bottom:8px;">Key Capabilities</div>
+            <div style="font-size:10px;color:#525252;margin-bottom:14px;">
+              <div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">✓ AI-powered integration &amp; automation</div>
+              <div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">✓ Enterprise security &amp; compliance</div>
+              <div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">✓ Legacy modernisation at scale</div>
+              <div style="padding:4px 0;">✓ Proven FSS industry expertise</div>
+            </div>
+            <div style="background:${cfg.color};color:white;padding:10px;border-radius:2px;font-size:11px;font-weight:700;text-align:center;">${cfg.cta} →</div>
+          </div>
+          <!-- Footer -->
+          <div style="background:#f4f4f4;padding:8px 16px;font-size:9px;color:#a8a8a8;text-align:center;">IBM Consulting · ${R.program_name||'ABM Program'} · ${R.start_date||'2026'}</div>
+        </div>`;
+    });
+    panelsHTML += `</div>`;
+  });
+
+  document.getElementById('landingBody').innerHTML = `
+    <p style="font-size:13px;color:#6f6f6f;margin-bottom:20px;">Landing page wireframes per account, personalised by persona. Select a persona tab to preview.</p>
+    ${tabsHTML}
+    ${panelsHTML}
+    <div class="blocker-box" style="margin-top:16px;"><strong>⚠️ Legal Approval Required</strong> All landing page copy must be reviewed by IBM legal before publishing.</div>`;
+}
+
+window.showLandingTab = function(id) {
+  document.querySelectorAll('[id^="lptab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById(id).style.display = 'flex';
+  document.querySelectorAll('[id^="btn-lptab-"]').forEach(btn => {
+    const active = btn.id === 'btn-' + id;
+    btn.style.background = active ? btn.style.borderColor : 'white';
+    btn.style.color = active ? 'white' : btn.style.borderColor;
+  });
+};
+
+function buildLandingHTML() {
+  const accounts = R.accounts || [];
+  const titles   = R.target_titles || [];
+  const sol      = (R.solutions||['AI Integration Services'])[0];
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${R.program_name||'ABM'} Landing Pages</title></head><body style="font-family:-apple-system,sans-serif;background:#f4f4f4;padding:24px;">`;
+  html += `<h1 style="font-size:18px;margin-bottom:24px;">${R.program_name||'ABM'} — Landing Pages</h1>`;
+  titles.forEach(title => {
+    html += `<h2 style="font-size:14px;margin:24px 0 12px;">${title}</h2><div style="display:flex;flex-wrap:wrap;gap:16px;">`;
+    accounts.forEach(account => {
+      const cfg = getPersonaCfg(title, account);
+      html += `<div style="width:280px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;background:white;"><div style="background:#161616;padding:16px;"><div style="font-family:Arial Black,sans-serif;font-weight:900;letter-spacing:3px;color:white;font-size:10px;margin-bottom:6px;">IBM</div><div style="color:white;font-weight:800;font-size:16px;">${cfg.h1} ${cfg.h2}</div><div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px;">${account} · ${cfg.role}</div></div><div style="padding:14px;"><p style="font-size:11px;font-weight:700;margin-bottom:4px;">The Challenge</p><p style="font-size:10px;color:#525252;margin-bottom:10px;">${cfg.challenge}</p><p style="font-size:11px;font-weight:700;margin-bottom:4px;">Our Solution</p><p style="font-size:10px;color:#525252;margin-bottom:10px;">${cfg.value}</p><div style="background:${cfg.color};color:white;padding:8px;border-radius:2px;font-size:10px;font-weight:700;text-align:center;">${cfg.cta}</div></div></div>`;
+    });
+    html += `</div>`;
+  });
+  html += `<p style="font-size:11px;color:#a8a8a8;margin-top:32px;">Made with IBM Bob · IBM Consulting · 2026</p></body></html>`;
+  return html;
+}
+
+function downloadHTML(html, filename) {
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
 
 function downloadCSV(csv, filename) {
   const blob = new Blob([csv], { type: 'text/csv' });
