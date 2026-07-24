@@ -748,7 +748,7 @@ async function runAgent() {
   setProgress(12, TOTAL_STEPS);
   ask('Which <strong>content assets</strong> would you like me to create for this program — personalised by account and persona?',
     'Step 12 of 13 — Content Assets',
-    ['Banner Ads only', 'Brochure only', 'Landing Pages only', 'Banners + Brochure', 'Banners + Landing Pages', 'Brochure + Landing Pages', 'All three (Banners, Brochure & Landing Pages)', 'None — I will brief the design team separately']);
+    ['Banner Ads only', 'Brochure only', 'Landing Pages only', 'Banners + Brochure', 'Banners + Landing Pages', 'Brochure + Landing Pages', 'All three (Banners, Brochure & Landing Pages)']);
   const assetAns = await waitForAnswer();
   R.create_banners         = assetAns.toLowerCase().includes('banner') || assetAns.toLowerCase().includes('all');
   R.create_asset_brochure  = assetAns.toLowerCase().includes('brochure') || assetAns.toLowerCase().includes('all');
